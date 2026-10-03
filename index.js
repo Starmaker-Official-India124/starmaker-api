@@ -1,31 +1,40 @@
 const express = require('express');
 const cors = require('cors');
-const axios = require('axios');
-
 const app = express();
-app.use(cors()); 
 
+app.use(cors());
+app.use(express.json());
+app.use(express.static('public')); // frontend ke liye
+
+// StarMaker Lookup Proxy
 app.get('/api/lookup', async (req, res) => {
-    const sid = req.query.sid;
-    if (!sid) return res.status(400).json({ error: "StarMaker ID zaroori hai" });
+  const sid = req.query.sid;
 
-    try {
-        const targetUrl = `https://starmaker.id.vn/wp-json/sm-user/v1/lookup?sid=${sid}`;
-        const response = await axios.get(targetUrl, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                'Accept': 'application/json, text/javascript, */*; q=0.01',
-                'Referer': 'https://starmaker.id.vn/',
-                'Origin': 'https://starmaker.id.vn'
-            },
-            timeout: 10000
-        });
-        res.json(response.data);
-    } catch (error) {
-        console.error(error.message);
-        res.status(500).json({ error: "Data nahi mila.", details: error.message });
+  if (!sid || !/^\d+$/.test(sid)) {
+    return res.status(400).json({ error: 'Valid numeric StarMaker ID required' });
+  }
+
+  try {
+    const response = await fetch(`https://starmaker.id.vn/wp-json/sm-user/v1/lookup?sid=${sid}`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(response.status).json(data);
     }
+
+    res.json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch data' });
+  }
+});
+
+// Health check
+app.get('/', (req, res) => {
+  res.send('StarMaker API is live 🚀');
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
